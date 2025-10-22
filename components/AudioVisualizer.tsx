@@ -31,8 +31,8 @@ const stateConfig = {
         ),
     },
     'user-speaking': {
-        orbColor: 'bg-red-500',
-        glowColor: 'shadow-red-500/70',
+        orbColor: 'bg-blue-500',
+        glowColor: 'shadow-blue-500/70',
         icon: (
              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.49 6-3.31 6-6.72h-1.7z" />
@@ -64,13 +64,14 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ level, state }
     const { orbColor, glowColor, icon } = stateConfig[state];
 
     const isPulsating = state === 'user-speaking' || state === 'speaking';
+    const isListening = state === 'listening';
     const scale = 1 + level * (isPulsating ? 1.5 : 0);
     const orbSize = state === 'idle' || state === 'error' ? 'w-48 h-48' : 'w-20 h-20 md:w-24 md:h-24';
 
     return (
         <div
             aria-label={state}
-            className={`relative ${orbSize} rounded-full flex items-center justify-center text-white transition-all duration-300 ease-in-out ${orbColor} shadow-2xl ${glowColor}`}
+            className={`relative ${orbSize} rounded-full flex items-center justify-center text-white transition-all duration-300 ease-in-out ${orbColor} shadow-2xl ${glowColor} ${isListening ? 'animate-pulse' : ''}`}
             style={{
                 transform: `scale(${scale})`,
                 transition: 'transform 50ms linear, background-color 300ms ease-in-out, width 300ms ease-in-out, height 300ms ease-in-out',

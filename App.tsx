@@ -36,13 +36,37 @@ const App: React.FC = () => {
     const callTimerIntervalRef = useRef<number | null>(null);
 
     useEffect(() => {
+        // Load saved settings
         const savedSettings = localStorage.getItem('ayla-settings');
         if (savedSettings) {
             const parsedSettings = JSON.parse(savedSettings);
             setSettings(parsedSettings);
             setEditingSettings(parsedSettings);
         }
+
+        // Load saved transcripts
+        const savedTranscripts = localStorage.getItem('ayla-transcripts');
+        if (savedTranscripts) {
+            try {
+                const parsedTranscripts = JSON.parse(savedTranscripts);
+                if (Array.isArray(parsedTranscripts)) {
+                    setTranscripts(parsedTranscripts);
+                }
+            } catch (e) {
+                console.error("Failed to parse transcripts from localStorage", e);
+                localStorage.removeItem('ayla-transcripts');
+            }
+        }
     }, []);
+
+    // Save transcripts to localStorage whenever they change
+    useEffect(() => {
+        if (transcripts.length > 0) {
+            localStorage.setItem('ayla-transcripts', JSON.stringify(transcripts));
+        } else {
+            localStorage.removeItem('ayla-transcripts');
+        }
+    }, [transcripts]);
 
     const handleOpenSettings = () => {
         setEditingSettings(settings);
@@ -357,6 +381,7 @@ ${settings.agentDescription}`;
     }
 
     const isConversationActive = conversationState !== 'idle' && conversationState !== 'error';
+    const showConversationView = isConversationActive || transcripts.length > 0;
 
     const getStatusText = () => {
         if (conversationState === 'connecting') return 'Connecting...';
@@ -366,11 +391,11 @@ ${settings.agentDescription}`;
 
     return (
         <div className="bg-gray-900 h-full flex flex-col font-sans text-white p-4 md:p-6">
-            {!isConversationActive && (
+            {!showConversationView && (
                 <div className="flex-grow flex flex-col items-center justify-center text-center">
                     <header className="absolute top-4 right-4">
                         <button onClick={handleOpenSettings} className="p-2 text-gray-400 hover:text-white" aria-label="Settings">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
                         </button>
                     </header>
                     <img src="https://i.ibb.co/6y4t1Gj/turkish-airlines-logo-white.png" alt="Turkish Airlines Logo" className="h-10 md:h-12 mb-8"/>
@@ -382,12 +407,19 @@ ${settings.agentDescription}`;
                 </div>
             )}
 
-            {isConversationActive && (
+            {showConversationView && (
                  <div className="flex-grow flex flex-col items-center justify-between w-full overflow-hidden">
                     {/* Header */}
-                    <div className="text-center pt-8 flex-shrink-0">
+                    <div className="text-center pt-8 flex-shrink-0 w-full relative">
                         <h1 className="text-3xl font-semibold">{settings.agentName} AI Assistant</h1>
                         <p className="text-lg text-green-400">{getStatusText()}</p>
+                        {!isConversationActive && (
+                             <div className="absolute top-0 right-0">
+                                <button onClick={handleOpenSettings} className="p-2 text-gray-400 hover:text-white" aria-label="Settings">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69-.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Transcription */}
@@ -395,15 +427,26 @@ ${settings.agentDescription}`;
 
                     {/* Footer Controls */}
                     <footer className="w-full flex flex-col items-center justify-center flex-shrink-0 p-4">
-                        <div className="mb-4 flex items-center justify-center" style={{minHeight: '260px'}}>
-                            { (conversationState === 'listening' || conversationState === 'user-speaking' || conversationState === 'connecting') 
-                                ? <AudioVisualizer state={conversationState} level={audioLevel} />
-                                : <Dialpad />
-                            }
-                        </div>
-                        <button onClick={handleStopConversation} className="w-16 h-16 bg-red-600 rounded-full text-white flex items-center justify-center" aria-label="End Call">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-1.6 0-3.15.25-4.62.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.1-2.66 1.82.79.72 1.68 1.33 2.66 1.82.33.16.56.5.56.9v3.1c1.47.47 3.02.72 4.62.72 5.52 0 10-4.48 10-10S17.52 9 12 9z" opacity=".3"/><path d="M12 9c1.6 0 3.15-.25 4.62-.72-1.47-.47-3.02-.72-4.62-.72-5.52 0-10 4.48-10 10 0 1.6.25 3.15.72 4.62C2.25 21.35 2 19.7 2 18c0-5.52 4.48-10 10-10zm0 12c-1.6 0-3.15-.25-4.62-.72v-3.1c-.33-.16-.56-.51-.56-.9-.98-.49-1.87-1.1-2.66-1.82-.33-.28-.39-.73-.15-1.07.79-.72 1.68-1.33 2.66-1.82.33-.16.56-.5.56-.9v-3.1C8.85 9.25 10.4 9 12 9c5.52 0 10 4.48 10 10s-4.48 10-10 10z"/></svg>
-                        </button>
+                        {isConversationActive ? (
+                            <>
+                                <div className="mb-4 flex items-center justify-center" style={{minHeight: '260px'}}>
+                                    { (conversationState === 'listening' || conversationState === 'user-speaking' || conversationState === 'connecting') 
+                                        ? <AudioVisualizer state={conversationState} level={audioLevel} />
+                                        : <Dialpad />
+                                    }
+                                </div>
+                                <button onClick={handleStopConversation} className="w-16 h-16 bg-red-600 rounded-full text-white flex items-center justify-center" aria-label="End Call">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-1.6 0-3.15.25-4.62.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.1-2.66 1.82.79.72 1.68 1.33 2.66 1.82.33.16.56.5.56.9v3.1c1.47.47 3.02.72 4.62.72 5.52 0 10-4.48 10-10S17.52 9 12 9z" opacity=".3"/><path d="M12 9c1.6 0 3.15-.25 4.62-.72-1.47-.47-3.02-.72-4.62-.72-5.52 0-10 4.48-10 10 0 1.6.25 3.15.72 4.62C2.25 21.35 2 19.7 2 18c0-5.52 4.48-10 10-10zm0 12c-1.6 0-3.15-.25-4.62-.72v-3.1c-.33-.16-.56-.51-.56-.9-.98-.49-1.87-1.1-2.66-1.82-.33-.28-.39-.73-.15-1.07.79-.72 1.68-1.33 2.66-1.82.33-.16.56-.5.56-.9v-3.1C8.85 9.25 10.4 9 12 9c5.52 0 10 4.48 10 10s-4.48 10-10 10z"/></svg>
+                                </button>
+                            </>
+                        ) : (
+                            <button onClick={handleStartConversation} className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-full transition-colors duration-200 flex items-center gap-2" disabled={conversationState === 'connecting'}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19.95 21q-3.125 0-6.2-.987-3.075-1-5.538-3.463-2.462-2.462-3.462-5.537Q3.762 8.125 3.762 5.05q0-.45.3-.75.3-.3.75-.3h3.9q.375 0 .638.225.262.225.337.575l.75 3.525q.05.25.025.512-.025.263-.175.488l-2.4 2.4q.925 1.6 2.388 3.062 1.462 1.463 3.062 2.388l2.4-2.4q.225-.15.488-.175.262-.025.512.025l3.525.75q.35.075.575.337.225.263.225.638v3.9q0 .45-.3.75-.3.3-.75.3Z"/>
+                                </svg>
+                                Start New Call
+                            </button>
+                        )}
                     </footer>
                  </div>
             )}
