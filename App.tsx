@@ -1,11 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { GoogleGenAI, LiveSession, LiveServerMessage, Modality } from "@google/genai";
-import { DEFAULT_SETTINGS } from './constants';
+import { DEFAULT_SETTINGS, AVAILABLE_VOICES } from './constants';
 import { createBlob, decode, decodeAudioData } from './utils/audio';
 import { AudioVisualizer } from './components/AudioVisualizer';
 import { TranscriptionDisplay } from './components/TranscriptionDisplay';
-import { SettingsPage } from './components/SettingsPage';
 import { ConversationState, Settings, TranscriptMessage } from './types';
+import { VoiceActivityDetector } from './utils/vad';
 
 const App: React.FC = () => {
     const [conversationState, setConversationState] = useState<ConversationState>('idle');
@@ -14,6 +14,7 @@ const App: React.FC = () => {
     const [callDuration, setCallDuration] = useState(0);
     const [showSettings, setShowSettings] = useState(false);
     const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+    const [editingSettings, setEditingSettings] = useState<Settings>(settings);
     const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([]);
 
     const sessionPromiseRef = useRef<Promise<LiveSession> | null>(null);
@@ -29,22 +30,33 @@ const App: React.FC = () => {
     const outputAnalyserNodeRef = useRef<AnalyserNode | null>(null);
     const animationFrameRef = useRef<number>(0);
 
-    const vadSpeakingRef = useRef(false);
-    const vadSilenceTimeoutRef = useRef<number | null>(null);
+    const vadRef = useRef<VoiceActivityDetector | null>(null);
     
     const callTimerIntervalRef = useRef<number | null>(null);
 
     useEffect(() => {
         const savedSettings = localStorage.getItem('ayla-settings');
         if (savedSettings) {
-            setSettings(JSON.parse(savedSettings));
+            const parsedSettings = JSON.parse(savedSettings);
+            setSettings(parsedSettings);
+            setEditingSettings(parsedSettings);
         }
     }, []);
 
-    const handleSaveSettings = (newSettings: Settings) => {
-        setSettings(newSettings);
-        localStorage.setItem('ayla-settings', JSON.stringify(newSettings));
+    const handleOpenSettings = () => {
+        setEditingSettings(settings);
+        setShowSettings(true);
+    };
+
+    const handleSaveSettings = () => {
+        setSettings(editingSettings);
+        localStorage.setItem('ayla-settings', JSON.stringify(editingSettings));
         setShowSettings(false);
+    };
+
+    const handleSettingsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setEditingSettings(prev => ({ ...prev, [name]: value }));
     };
 
     useEffect(() => {
@@ -116,11 +128,8 @@ const App: React.FC = () => {
         scriptProcessorRef.current = null;
         microphoneStreamRef.current = null;
 
-        if (vadSilenceTimeoutRef.current) {
-            clearTimeout(vadSilenceTimeoutRef.current);
-            vadSilenceTimeoutRef.current = null;
-        }
-        vadSpeakingRef.current = false;
+        vadRef.current?.stop();
+        vadRef.current = null;
         
         setConversationState('idle');
     }, []);
@@ -167,6 +176,12 @@ ${settings.agentDescription}`;
 
                         outputAnalyserNodeRef.current = outputAudioContextRef.current.createAnalyser();
                         outputAnalyserNodeRef.current.fftSize = 256;
+
+                        vadRef.current = new VoiceActivityDetector({
+                            analyserNode: inputAnalyserNodeRef.current,
+                            onSpeechStart: () => setConversationState(prevState => (prevState === 'listening' ? 'user-speaking' : prevState)),
+                            onSpeechEnd: () => setConversationState(prevState => (prevState === 'user-speaking' ? 'listening' : prevState)),
+                        });
                         
                         const outputNode = outputAudioContextRef.current.createGain();
                         outputNode.connect(outputAnalyserNodeRef.current);
@@ -179,32 +194,7 @@ ${settings.agentDescription}`;
                                 session.sendRealtimeInput({ media: pcmBlob });
                             });
 
-                            if (inputAnalyserNodeRef.current) {
-                                const VAD_THRESHOLD = 0.02;
-                                const VAD_SILENCE_TIMEOUT = 800;
-                        
-                                const dataArray = new Uint8Array(inputAnalyserNodeRef.current.frequencyBinCount);
-                                inputAnalyserNodeRef.current.getByteTimeDomainData(dataArray);
-                                const sum = dataArray.reduce((acc, val) => acc + Math.abs(val - 128), 0);
-                                const level = sum / dataArray.length / 128;
-                        
-                                if (level > VAD_THRESHOLD) {
-                                    if (!vadSpeakingRef.current) {
-                                        vadSpeakingRef.current = true;
-                                        setConversationState(prevState => (prevState === 'listening' ? 'user-speaking' : prevState));
-                                    }
-                                    if (vadSilenceTimeoutRef.current) {
-                                        window.clearTimeout(vadSilenceTimeoutRef.current);
-                                        vadSilenceTimeoutRef.current = null;
-                                    }
-                                } else if (vadSpeakingRef.current && !vadSilenceTimeoutRef.current) {
-                                    vadSilenceTimeoutRef.current = window.setTimeout(() => {
-                                        vadSpeakingRef.current = false;
-                                        setConversationState(prevState => (prevState === 'user-speaking' ? 'listening' : prevState));
-                                        vadSilenceTimeoutRef.current = null;
-                                    }, VAD_SILENCE_TIMEOUT);
-                                }
-                            }
+                            vadRef.current?.process();
                         };
 
                         source.connect(inputAnalyserNodeRef.current);
@@ -291,7 +281,78 @@ ${settings.agentDescription}`;
     }, [handleStopConversation, conversationState, settings]);
 
     if (showSettings) {
-        return <SettingsPage currentSettings={settings} onSave={handleSaveSettings} onClose={() => setShowSettings(false)} />;
+        return (
+            <div className="bg-gray-900 h-full flex flex-col font-sans text-white p-4 md:p-6">
+              <header className="flex items-center justify-between mb-6">
+                <button onClick={() => setShowSettings(false)} className="p-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <h1 className="text-2xl font-semibold">Settings</h1>
+                <div className="w-8"></div>
+              </header>
+        
+              <div className="flex-grow overflow-y-auto space-y-6">
+                <div>
+                  <label htmlFor="agentName" className="block text-sm font-medium text-gray-400 mb-1">Agent Name</label>
+                  <input
+                    type="text"
+                    id="agentName"
+                    name="agentName"
+                    value={editingSettings.agentName}
+                    onChange={handleSettingsChange}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="agentRole" className="block text-sm font-medium text-gray-400 mb-1">Role</label>
+                  <input
+                    type="text"
+                    id="agentRole"
+                    name="agentRole"
+                    value={editingSettings.agentRole}
+                    onChange={handleSettingsChange}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="agentDescription" className="block text-sm font-medium text-gray-400 mb-1">Description (System Prompt)</label>
+                  <textarea
+                    id="agentDescription"
+                    name="agentDescription"
+                    value={editingSettings.agentDescription}
+                    onChange={handleSettingsChange}
+                    rows={15}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="voice" className="block text-sm font-medium text-gray-400 mb-1">Voice</label>
+                  <select
+                    id="voice"
+                    name="voice"
+                    value={editingSettings.voice}
+                    onChange={handleSettingsChange}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {AVAILABLE_VOICES.map(voiceName => (
+                      <option key={voiceName} value={voiceName}>{voiceName}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+        
+              <footer className="mt-6">
+                <button
+                  onClick={handleSaveSettings}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition-colors duration-200"
+                >
+                  Save Settings
+                </button>
+              </footer>
+            </div>
+          );
     }
 
     const isConversationActive = conversationState !== 'idle' && conversationState !== 'error';
@@ -307,7 +368,7 @@ ${settings.agentDescription}`;
             {!isConversationActive && (
                 <div className="flex-grow flex flex-col items-center justify-center text-center">
                     <header className="absolute top-4 right-4">
-                        <button onClick={() => setShowSettings(true)} className="p-2 text-gray-400 hover:text-white" aria-label="Settings">
+                        <button onClick={handleOpenSettings} className="p-2 text-gray-400 hover:text-white" aria-label="Settings">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
                         </button>
                     </header>
