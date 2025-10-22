@@ -3,9 +3,9 @@ import { GoogleGenAI, LiveSession, LiveServerMessage, Modality } from "@google/g
 import { DEFAULT_SETTINGS } from './constants';
 import { createBlob, decode, decodeAudioData } from './utils/audio';
 import { AudioVisualizer } from './components/AudioVisualizer';
-import { Dialpad } from './components/Dialpad';
+import { TranscriptionDisplay } from './components/TranscriptionDisplay';
 import { SettingsPage } from './components/SettingsPage';
-import { ConversationState, Settings } from './types';
+import { ConversationState, Settings, TranscriptMessage } from './types';
 
 const App: React.FC = () => {
     const [conversationState, setConversationState] = useState<ConversationState>('idle');
@@ -14,6 +14,7 @@ const App: React.FC = () => {
     const [callDuration, setCallDuration] = useState(0);
     const [showSettings, setShowSettings] = useState(false);
     const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+    const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([]);
 
     const sessionPromiseRef = useRef<Promise<LiveSession> | null>(null);
     const inputAudioContextRef = useRef<AudioContext | null>(null);
@@ -127,6 +128,7 @@ const App: React.FC = () => {
     const handleStartConversation = useCallback(async () => {
         setConversationState('connecting');
         setErrorMessage('');
+        setTranscripts([]);
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -211,6 +213,34 @@ ${settings.agentDescription}`;
                         setConversationState('listening');
                     },
                     onmessage: async (message: LiveServerMessage) => {
+                        if (message.serverContent?.inputTranscription) {
+                            const text = message.serverContent.inputTranscription.text;
+                            setTranscripts(prev => {
+                                const newTranscripts = [...prev];
+                                const last = newTranscripts[newTranscripts.length - 1];
+                                if (last && last.speaker === 'user') {
+                                    last.text += text;
+                                } else {
+                                    newTranscripts.push({ speaker: 'user', text });
+                                }
+                                return newTranscripts;
+                            });
+                        }
+            
+                        if (message.serverContent?.outputTranscription) {
+                            const text = message.serverContent.outputTranscription.text;
+                            setTranscripts(prev => {
+                                const newTranscripts = [...prev];
+                                const last = newTranscripts[newTranscripts.length - 1];
+                                if (last && last.speaker === 'model') {
+                                    last.text += text;
+                                } else {
+                                    newTranscripts.push({ speaker: 'model', text });
+                                }
+                                return newTranscripts;
+                            });
+                        }
+                        
                         const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
                         if (base64Audio && outputAudioContextRef.current && outputAnalyserNodeRef.current) {
                              if(conversationState !== 'speaking') setConversationState('speaking');
@@ -291,20 +321,18 @@ ${settings.agentDescription}`;
             )}
 
             {isConversationActive && (
-                 <div className="flex-grow flex flex-col items-center justify-between w-full">
+                 <div className="flex-grow flex flex-col items-center justify-between w-full overflow-hidden">
                     {/* Header */}
-                    <div className="text-center pt-8">
+                    <div className="text-center pt-8 flex-shrink-0">
                         <h1 className="text-3xl font-semibold">{settings.agentName} AI Assistant</h1>
                         <p className="text-lg text-green-400">{getStatusText()}</p>
                     </div>
 
-                    {/* Dialpad */}
-                    <div className="my-8">
-                         <Dialpad />
-                    </div>
+                    {/* Transcription */}
+                    <TranscriptionDisplay transcripts={transcripts} />
 
                     {/* Footer Controls */}
-                    <footer className="w-full flex flex-col items-center justify-center">
+                    <footer className="w-full flex flex-col items-center justify-center flex-shrink-0 p-4">
                         <div className="flex items-center justify-center space-x-8 w-full max-w-xs">
                              <button className="p-4 bg-gray-700/60 rounded-full text-gray-300 cursor-not-allowed" aria-label="Mute">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1.2-9.1c0-.66.54-1.2 1.2-1.2.66 0 1.2.54 1.2 1.2l-.01 6.2c0 .66-.53 1.2-1.19 1.2s-1.2-.54-1.2-1.2V4.9zm6.5 6.2c0 .55.45 1 1 1s1-.45 1-1V9.4c0-.55-.45-1-1-1s-1 .45-1 1v1.7zM8.7 4.9v6.2c0 .66-.54 1.2-1.2 1.2s-1.2-.54-1.2-1.2V4.9c0-.66.54-1.2 1.2-1.2s1.2.54 1.2 1.2zM5 9.4v1.7c0 .55.45 1 1 1s1-.45 1-1V9.4c0-.55-.45-1-1-1s-1 .45-1 1zm12.33 3.19c-.38.38-.38 1.02 0 1.41A8.963 8.963 0 0 1 19 18c0 3.54-2.5 6.45-5.78 6.91l-.02.09c0 .55-.45 1-1 1s-1-.45-1-1l-.02-.09C8.5 24.45 6 21.54 6 18c0-1.38.31-2.69.87-3.81.38-.38.38-1.02 0-1.41a.996.996 0 0 0-1.41 0A8.963 8.963 0 0 0 4 18c0 4.41 3.59 8 8 8s8-3.59 8-8c0-1.99-.74-3.8-1.97-5.22a.996.996 0 0 0-1.41 0z"/></svg>

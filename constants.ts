@@ -1,6 +1,19 @@
 import { Settings } from './types';
 
-export const AVAILABLE_VOICES = ['Kore', 'Puck', 'Charon', 'Fenrir', 'Zephyr'];
+export const AVAILABLE_VOICES = [
+  'Aura',
+  'Charon',
+  'Eos',
+  'Fenrir',
+  'Hades',
+  'Hermes',
+  'Kore',
+  'Nyx',
+  'Puck',
+  'Rhea',
+  'Siren',
+  'Zephyr'
+];
 
 export const DEFAULT_SETTINGS: Settings = {
   agentName: 'Ayla',
