@@ -1,0 +1,7 @@
+{
+  "name": "Ayla - Turkish Airlines AI Assistant",
+  "description": "Have a real-time voice conversation with Ayla, your Turkish Airlines customer service AI, powered by Gemini.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
