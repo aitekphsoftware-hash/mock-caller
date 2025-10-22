@@ -6,6 +6,7 @@ import { AudioVisualizer } from './components/AudioVisualizer';
 import { TranscriptionDisplay } from './components/TranscriptionDisplay';
 import { ConversationState, Settings, TranscriptMessage } from './types';
 import { VoiceActivityDetector } from './utils/vad';
+import { Dialpad } from './components/Dialpad';
 
 const App: React.FC = () => {
     const [conversationState, setConversationState] = useState<ConversationState>('idle');
@@ -369,7 +370,7 @@ ${settings.agentDescription}`;
                 <div className="flex-grow flex flex-col items-center justify-center text-center">
                     <header className="absolute top-4 right-4">
                         <button onClick={handleOpenSettings} className="p-2 text-gray-400 hover:text-white" aria-label="Settings">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
                         </button>
                     </header>
                     <img src="https://i.ibb.co/6y4t1Gj/turkish-airlines-logo-white.png" alt="Turkish Airlines Logo" className="h-10 md:h-12 mb-8"/>
@@ -390,20 +391,17 @@ ${settings.agentDescription}`;
                     </div>
 
                     {/* Transcription */}
-                    <TranscriptionDisplay transcripts={transcripts} />
+                    <TranscriptionDisplay transcripts={transcripts} agentName={settings.agentName} />
 
                     {/* Footer Controls */}
                     <footer className="w-full flex flex-col items-center justify-center flex-shrink-0 p-4">
-                        <div className="flex items-center justify-center space-x-8 w-full max-w-xs">
-                             <button className="p-4 bg-gray-700/60 rounded-full text-gray-300 cursor-not-allowed" aria-label="Mute">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1.2-9.1c0-.66.54-1.2 1.2-1.2.66 0 1.2.54 1.2 1.2l-.01 6.2c0 .66-.53 1.2-1.19 1.2s-1.2-.54-1.2-1.2V4.9zm6.5 6.2c0 .55.45 1 1 1s1-.45 1-1V9.4c0-.55-.45-1-1-1s-1 .45-1 1v1.7zM8.7 4.9v6.2c0 .66-.54 1.2-1.2 1.2s-1.2-.54-1.2-1.2V4.9c0-.66.54-1.2 1.2-1.2s1.2.54 1.2 1.2zM5 9.4v1.7c0 .55.45 1 1 1s1-.45 1-1V9.4c0-.55-.45-1-1-1s-1 .45-1 1zm12.33 3.19c-.38.38-.38 1.02 0 1.41A8.963 8.963 0 0 1 19 18c0 3.54-2.5 6.45-5.78 6.91l-.02.09c0 .55-.45 1-1 1s-1-.45-1-1l-.02-.09C8.5 24.45 6 21.54 6 18c0-1.38.31-2.69.87-3.81.38-.38.38-1.02 0-1.41a.996.996 0 0 0-1.41 0A8.963 8.963 0 0 0 4 18c0 4.41 3.59 8 8 8s8-3.59 8-8c0-1.99-.74-3.8-1.97-5.22a.996.996 0 0 0-1.41 0z"/></svg>
-                            </button>
-                             <AudioVisualizer state={conversationState} level={audioLevel} />
-                             <button className="p-4 bg-gray-700/60 rounded-full text-gray-300 cursor-not-allowed" aria-label="Speaker">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-                             </button>
+                        <div className="mb-4 flex items-center justify-center" style={{minHeight: '260px'}}>
+                            { (conversationState === 'listening' || conversationState === 'user-speaking' || conversationState === 'connecting') 
+                                ? <AudioVisualizer state={conversationState} level={audioLevel} />
+                                : <Dialpad />
+                            }
                         </div>
-                        <button onClick={handleStopConversation} className="mt-8 w-16 h-16 bg-red-600 rounded-full text-white flex items-center justify-center" aria-label="End Call">
+                        <button onClick={handleStopConversation} className="w-16 h-16 bg-red-600 rounded-full text-white flex items-center justify-center" aria-label="End Call">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-1.6 0-3.15.25-4.62.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.1-2.66 1.82.79.72 1.68 1.33 2.66 1.82.33.16.56.5.56.9v3.1c1.47.47 3.02.72 4.62.72 5.52 0 10-4.48 10-10S17.52 9 12 9z" opacity=".3"/><path d="M12 9c1.6 0 3.15-.25 4.62-.72-1.47-.47-3.02-.72-4.62-.72-5.52 0-10 4.48-10 10 0 1.6.25 3.15.72 4.62C2.25 21.35 2 19.7 2 18c0-5.52 4.48-10 10-10zm0 12c-1.6 0-3.15-.25-4.62-.72v-3.1c-.33-.16-.56-.51-.56-.9-.98-.49-1.87-1.1-2.66-1.82-.33-.28-.39-.73-.15-1.07.79-.72 1.68-1.33 2.66-1.82.33-.16.56-.5.56-.9v-3.1C8.85 9.25 10.4 9 12 9c5.52 0 10 4.48 10 10s-4.48 10-10 10z"/></svg>
                         </button>
                     </footer>
