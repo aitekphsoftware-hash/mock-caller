@@ -16,6 +16,19 @@
   }
 }
 </script>
+<style>
+    @keyframes pulse-scale {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+    }
+    .animate-pulse-scale {
+      animation: pulse-scale 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
 </head>
   <body class="bg-black text-white h-screen overflow-hidden">
     <div id="root" class="h-full"></div>

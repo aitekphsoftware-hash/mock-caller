@@ -68,14 +68,19 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ level, state }
     const scale = 1 + level * (isPulsating ? 1.5 : 0);
     const orbSize = state === 'idle' || state === 'error' ? 'w-48 h-48' : 'w-20 h-20 md:w-24 md:h-24';
 
+    const style: React.CSSProperties = {
+        transition: 'transform 50ms linear, background-color 300ms ease-in-out, width 300ms ease-in-out, height 300ms ease-in-out',
+    };
+
+    if (!isListening) {
+        style.transform = `scale(${scale})`;
+    }
+
     return (
         <div
             aria-label={state}
-            className={`relative ${orbSize} rounded-full flex items-center justify-center text-white transition-all duration-300 ease-in-out ${orbColor} shadow-2xl ${glowColor} ${isListening ? 'animate-pulse' : ''}`}
-            style={{
-                transform: `scale(${scale})`,
-                transition: 'transform 50ms linear, background-color 300ms ease-in-out, width 300ms ease-in-out, height 300ms ease-in-out',
-            }}
+            className={`relative ${orbSize} rounded-full flex items-center justify-center text-white transition-all duration-300 ease-in-out ${orbColor} shadow-2xl ${glowColor} ${isListening ? 'animate-pulse-scale' : ''}`}
+            style={style}
         >
             {icon}
         </div>
